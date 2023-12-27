@@ -5,6 +5,7 @@ from .models import Book, Author, BookInstance, Genre
 from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin
 
 # Create your views here.
 
@@ -62,6 +63,18 @@ class LoanedBooksByUserListView(LoginRequiredMixin,generic.ListView):
         return BookInstance.objects.filter(borrower=self.request.user).filter(status__exact='o').order_by('due_back')
 
 
+class AllBorrowedBooksListView(PermissionRequiredMixin,generic.ListView):
+    """
+    Generic class-based view listing all books on loan to all users.
+    """
+    model = BookInstance
+    permission_required = 'catalog.can_mark_returned'
+    template_name ='catalog/bookinstance_list_all_borrowed_books.html'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return BookInstance.objects.filter(status__exact='o').order_by('due_back')
+
 from django.contrib.auth.decorators import permission_required
 
 from django.shortcuts import get_object_or_404
@@ -72,7 +85,7 @@ import datetime
 from .forms import RenewBookForm
 
 @permission_required('catalog.can_mark_returned')
-def renew_book_librarian(request, pk):
+def RenewBookLibrarian(request, pk):
     """
     View function for renewing a specific BookInstance by librarian
     """
@@ -99,3 +112,23 @@ def renew_book_librarian(request, pk):
         form = RenewBookForm(initial={'renewal_date': proposed_renewal_date,})
 
     return render(request, 'catalog/book_renew_librarian.html', {'form': form, 'bookinst':book_inst})
+
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.urls import reverse_lazy
+from .models import Author
+
+class AuthorCreate(PermissionRequiredMixin, CreateView):
+    permission_required = 'catalog.can_mark_returned'
+    model = Author
+    fields = '__all__'
+
+class AuthorUpdate(PermissionRequiredMixin, UpdateView):
+    permission_required = 'catalog.can_mark_returned'
+    model = Author
+    fields = ['first_name','last_name','date_of_birth','date_of_death']
+
+class AuthorDelete(PermissionRequiredMixin, DeleteView):
+    permission_required = 'catalog.can_mark_returned'
+    model = Author
+    success_url = reverse_lazy('authors')
+
